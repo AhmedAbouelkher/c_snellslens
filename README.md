@@ -1,24 +1,56 @@
 # Snell's Lens
 
-A small Raylib demo that bends an image through a simple glass lens using Snell's law.
+| CPU Mode (Slow) | GPU Shader Mode (Fast) |
+| --- | --- |
+| ![CPU mode demo](demo/cpu_result.jpg) | ![GPU shader mode demo](demo/shader_gpu_result.jpg) |
 
-## What it does
+A small Raylib demo that simulates a glass lens warping an image through Snell's law in vector form.
 
-- `main.c` loads the image, handles input, and switches between CPU and shader rendering.
-- `vector_math.h` provides the vector helpers and refraction math.
-- `lens_shader.glsl` applies the same lens effect on the GPU.
+## Project Overview
+
+The program renders a movable circular lens over an image and refracts pixels through a hemisphere-shaped surface. It has two implementations of the same effect:
+
+- `main.c` handles the window, image loading, input, and the CPU/GPU rendering switch.
+- `vector_math.h` contains the vector helpers plus the refraction equation used by the CPU path.
+- `lens_shader.glsl` mirrors the same lens math in a fragment shader for the GPU path.
+
+## Theory
+
+| | |
+| --- | --- |
+| [![desmos_theory](demo/desmos_theory.gif)](https://www.desmos.com/3d/eebbaskabr) | [![snells_law](demo/snells_law.png)](https://physics.stackexchange.com/questions/435512/snells-law-in-vector-form) |
+
+The lens surface is treated as a hemisphere centered on the cursor. For any pixel inside the lens radius, the code finds the corresponding point on the hemisphere, derives the surface normal, and refracts the incoming ray through the interface.
+
+The refraction step uses the vector form of Snell's law:
+
+```text
+t = μ i + n * sqrt(1 - μ² (1 - (n · i)²)) - μ n (n · i)
+```
+
+where:
+
+- `i` is the incident ray
+- `t` is the transmitted ray
+- `n` is the surface normal
+- `μ = n1 / n2`
+
+That same refraction model is used in both the CPU helper and the shader, so the two modes stay visually consistent while showing different performance characteristics.
 
 ## Controls
 
 - Drag and drop an image to load it.
 - Right click to toggle the lens.
-- `Space` to switch CPU / shader mode.
-- `W` / `S` to change lens radius.
+- `Space` to switch between CPU and shader mode.
+- Mouse wheel or `W` / `S` to change lens radius.
 - `I` / `O` to change index of refraction.
+- `D` to print debug values for the current refracted pixel.
 
-## How it works
+## Files
 
-The lens is modeled as a hemisphere. For every pixel inside the lens radius, the code computes the surface normal, refracts a ray using Snell's law in vector form, and samples the source image at the refracted position.
+- `main.c`: application entry point and rendering loop.
+- `vector_math.h`: vector helpers, distance, normalization, and refraction math.
+- `lens_shader.glsl`: GPU version of the lens effect.
 
 ## References
 

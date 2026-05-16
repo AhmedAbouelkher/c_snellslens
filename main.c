@@ -152,6 +152,17 @@ int main(int argc, char **argv) {
       }
     }
 
+    float wheelMove = GetMouseWheelMove();
+    if (wheelMove != 0.0f) {
+      global_lensIOR += wheelMove * .1f;
+      if (global_lensIOR > 7.0f) {
+        global_lensIOR = 7.0f;
+      }
+      if (global_lensIOR < 1.25f) {
+        global_lensIOR = 1.25f;
+      }
+    }
+
     if (IsKeyDown(KEY_I)) {
       global_lensIOR += 0.1f;
       if (global_lensIOR > 7.0f) {
@@ -164,9 +175,10 @@ int main(int argc, char **argv) {
       }
     }
 
-    if (global_isLensEnabled) {
-      SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
+    if (global_isLensEnabled && IsTextureValid(texture)) {
+      HideCursor();
     } else {
+      ShowCursor();
       SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     }
 
@@ -236,8 +248,8 @@ int main(int argc, char **argv) {
 
       char *controlsText = "[Right Click] Toggle Lens\n[W] Increase "
                            "Radius\n[S] Decrease Radius\n[I] Increase IOR"
-                           "\n[O] Decrease IOR\n[Space] Toggle "
-                           "Shader/CPU";
+                           "\n[O] Decrease IOR\n[Mouse Wheel] Change "
+                           "Radius\n[Space] Toggle Shader/CPU";
       int controlsTextWidth = MeasureText(controlsText, 15);
 
       char *shaderModeText =
@@ -245,7 +257,7 @@ int main(int argc, char **argv) {
       int shaderModeTextWidth = MeasureText(shaderModeText, 20);
 
       DrawRectangle(0, 0, controlsTextWidth * 1.1f + controlsTextWidth * .2f,
-                    controlsTextWidth, CLITERAL(Color){0, 0, 0, 150});
+                    controlsTextWidth * 1.1f, CLITERAL(Color){0, 0, 0, 150});
 
       DrawFPS(10, 10);
       DrawText(
@@ -253,7 +265,7 @@ int main(int argc, char **argv) {
           10, 35, 15, WHITE);
       DrawText(controlsText, 10, 65, 15, WHITE);
 
-      DrawText(shaderModeText, 10, 170, 20, RED);
+      DrawText(shaderModeText, 10, 190, 20, global_useShaderMode ? GREEN : RED);
 
     } else {
       const char *text =
