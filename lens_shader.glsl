@@ -12,6 +12,7 @@ uniform vec2 offset;
 uniform vec2 textureSize;
 uniform float radius;
 uniform float ior;
+uniform float scale;
 uniform sampler2D texture0;
 
 float hemisphereZ(float x, float y) {
@@ -27,14 +28,13 @@ float hemisphereSurfacePointY(float x, float y) {
 }
 
 void main() {
-  // Build the current pixel position in the same space as `mouse` and `radius`.
-  vec2 pixelCoord = fragTexCoord * textureSize + offset;
+  vec2 pixelCoord = fragTexCoord * textureSize;
+  vec2 mouseCoord = (mouse - offset) / scale;
   vec2 sampleCoord = pixelCoord;
 
-  if (distance(pixelCoord, mouse) < radius) {
-    // Work in image-space so the lens center tracks the mouse correctly.
-    float x = pixelCoord.x - mouse.x;
-    float y = pixelCoord.y - mouse.y;
+  if (distance(pixelCoord, mouseCoord) < radius) {
+    float x = pixelCoord.x - mouseCoord.x;
+    float y = pixelCoord.y - mouseCoord.y;
     float z = hemisphereZ(x, y);
     float mu = 1.0 / ior;
 
@@ -54,7 +54,6 @@ void main() {
     sampleCoord = pixelCoord - tr.xy * t;
   }
 
-  // Convert back to UVs and clamp so sampling stays inside the source image.
-  vec2 uv = (sampleCoord - offset) / textureSize;
+  vec2 uv = sampleCoord / textureSize;
   finalColor = texture(texture0, clamp(uv, vec2(0.0), vec2(1.0)));
 }

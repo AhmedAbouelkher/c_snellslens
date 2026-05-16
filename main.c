@@ -23,9 +23,11 @@ float hemisphereSurfacePointY(float x, float y, float radius) {
   return -y / sqrtf(radius * radius - x * x - y * y);
 }
 
-void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY) {
+void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY,
+                 float scale) {
   Vector2 nMousePosition = GetMousePosition();
-  Vector2 lensCenter = {nMousePosition.x - offsetX, nMousePosition.y - offsetY};
+  Vector2 lensCenter = {(nMousePosition.x - offsetX) / scale,
+                        (nMousePosition.y - offsetY) / scale};
   Color *srcPixels = src->data;
   Color *dstPixels = dst->data;
   int width = src->width < dst->width ? src->width : dst->width;
@@ -88,12 +90,20 @@ void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY) {
   }
 }
 
-int main() {
+int main(int argc, char **argv) {
+  char *imagePath = NULL;
+  if (argc > 1) {
+    imagePath = argv[1];
+  }
+
   InitWindow(1200, 900, "Snell's Lens");
   SetTargetFPS(60);
 
-  Image sourceImage = LoadImage("assets/baboon.png");
-  ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+  Image sourceImage = {0};
+  if (imagePath) {
+    Image sourceImage = LoadImage("assets/baboon.png");
+    ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+  }
   Texture2D texture = LoadTextureFromImage(sourceImage);
 
   Shader lensShader = LoadShader(0, "lens_shader.glsl");
@@ -102,6 +112,7 @@ int main() {
   int iorLoc = GetShaderLocation(lensShader, "ior");
   int offsetLoc = GetShaderLocation(lensShader, "offset");
   int textureSizeLoc = GetShaderLocation(lensShader, "textureSize");
+  int scaleLoc = GetShaderLocation(lensShader, "scale");
 
   while (!WindowShouldClose()) {
     if (IsFileDropped()) {
@@ -113,6 +124,7 @@ int main() {
         ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
         UnloadTexture(texture);
         texture = LoadTextureFromImage(sourceImage);
+        global_isLensEnabled = true;
       }
       UnloadDroppedFiles(droppedFiles);
     }
@@ -129,8 +141,8 @@ int main() {
 
     if (IsKeyDown(KEY_W)) {
       global_lensRadius += 10.0f;
-      if (global_lensRadius > 200.0f) {
-        global_lensRadius = 200.0f;
+      if (global_lensRadius > 300.0f) {
+        global_lensRadius = 300.0f;
       }
 
     } else if (IsKeyDown(KEY_S)) {
@@ -142,13 +154,13 @@ int main() {
 
     if (IsKeyDown(KEY_I)) {
       global_lensIOR += 0.1f;
-      if (global_lensIOR > 6.0f) {
-        global_lensIOR = 6.0f;
+      if (global_lensIOR > 7.0f) {
+        global_lensIOR = 7.0f;
       }
     } else if (IsKeyDown(KEY_O)) {
       global_lensIOR -= 0.1f;
-      if (global_lensIOR < 1.0f) {
-        global_lensIOR = 1.0f;
+      if (global_lensIOR < 1.25f) {
+        global_lensIOR = 1.25f;
       }
     }
 
@@ -162,8 +174,17 @@ int main() {
     ClearBackground(BLACK);
 
     if (IsTextureValid(texture)) {
-      int textureX = (GetScreenWidth() - sourceImage.width) / 2;
-      int textureY = (GetScreenHeight() - sourceImage.height) / 2;
+      float scaleX = (float)GetScreenWidth() / (float)sourceImage.width;
+      float scaleY = (float)GetScreenHeight() / (float)sourceImage.height;
+      float scale = scaleX < scaleY ? scaleX : scaleY;
+      float textureWidth = (float)sourceImage.width * scale;
+      float textureHeight = (float)sourceImage.height * scale;
+      Rectangle textureRect = {
+          (GetScreenWidth() - textureWidth) / 2.0f,
+          (GetScreenHeight() - textureHeight) / 2.0f,
+          textureWidth,
+          textureHeight,
+      };
 
       if (global_isLensEnabled && global_useShaderMode) {
         UpdateTexture(texture, sourceImage.data);
@@ -172,7 +193,8 @@ int main() {
         float mousePos[2] = {GetMousePosition().x, GetMousePosition().y};
         float lensRadius[1] = {global_lensRadius};
         float lensIOR[1] = {global_lensIOR};
-        float offset[2] = {(float)textureX, (float)textureY};
+        float offset[2] = {textureRect.x, textureRect.y};
+        float imageScale[1] = {scale};
         float textureSize[2] = {(float)sourceImage.width,
                                 (float)sourceImage.height};
 
@@ -182,15 +204,20 @@ int main() {
         SetShaderValue(lensShader, offsetLoc, offset, SHADER_UNIFORM_VEC2);
         SetShaderValue(lensShader, textureSizeLoc, textureSize,
                        SHADER_UNIFORM_VEC2);
+        SetShaderValue(lensShader, scaleLoc, imageScale, SHADER_UNIFORM_FLOAT);
 
         BeginShaderMode(lensShader);
-        DrawTexture(texture, textureX, textureY, WHITE);
+        DrawTexturePro(texture,
+                       CLITERAL(Rectangle){0.0f, 0.0f, (float)texture.width,
+                                           (float)texture.height},
+                       textureRect, CLITERAL(Vector2){0.0f, 0.0f}, 0.0f, WHITE);
         EndShaderMode();
 
       } else if (global_isLensEnabled) {
         Image frame = ImageCopy(sourceImage);
 
-        applyLensOn(&frame, &sourceImage, textureX, textureY);
+        applyLensOn(&frame, &sourceImage, (int)textureRect.x,
+                    (int)textureRect.y, scale);
         UpdateTexture(texture, frame.data);
         UnloadImage(frame);
       } else {
@@ -201,7 +228,10 @@ int main() {
       }
 
       if (!(global_isLensEnabled && global_useShaderMode)) {
-        DrawTexture(texture, textureX, textureY, WHITE);
+        DrawTexturePro(texture,
+                       CLITERAL(Rectangle){0.0f, 0.0f, (float)texture.width,
+                                           (float)texture.height},
+                       textureRect, CLITERAL(Vector2){0.0f, 0.0f}, 0.0f, WHITE);
       }
 
       char *controlsText = "[Right Click] Toggle Lens\n[W] Increase "
@@ -228,8 +258,8 @@ int main() {
     } else {
       const char *text =
           "Drag and drop an image to see the Snell's Lens effect";
-      int textWidth = MeasureText(text, 20);
-      int textHeight = 20;
+      int textHeight = 30;
+      int textWidth = MeasureText(text, textHeight);
       DrawText(text, (GetScreenWidth() - textWidth) / 2,
                (GetScreenHeight() - textHeight) / 2, textHeight, WHITE);
     }
