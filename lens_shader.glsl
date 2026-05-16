@@ -38,7 +38,7 @@ void main() {
     float z = hemisphereZ(x, y);
     float mu = 1.0 / ior;
 
-    vec3 i = vec3(0.0, 0.0, -1.0);
+    vec3 i = vec3(0.0, 0.0, 1.0);
     vec3 n = normalize(vec3(
       hemisphereSurfacePointX(x, y),
       hemisphereSurfacePointY(x, y),
@@ -47,11 +47,11 @@ void main() {
 
     float c = dot(n, i);
     vec3 tr = sqrt(1.0 - mu * mu * (1.0 - c * c)) * n + mu * (i - c * n);
-    //vec3 tr = refract(i, n, mu);
+    // vec3 tr = refract(i, n, mu);
 
     float t = -z / tr.z;
 
-    sampleCoord = pixelCoord + tr.xy * t;
+    sampleCoord = pixelCoord - tr.xy * t;
   }
 
   // Convert back to UVs and clamp so sampling stays inside the source image.

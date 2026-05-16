@@ -6,7 +6,7 @@
 #include "vector_math.h"
 
 float global_lensRadius = 100.0f;
-float global_lensIOR = 1.5f;
+float global_lensIOR = 1.52f;
 bool global_useShaderMode = false;
 bool global_isLensEnabled = false;
 bool global_readyToReset = false;
@@ -21,16 +21,6 @@ float hemisphereSurfacePointX(float x, float y, float radius) {
 
 float hemisphereSurfacePointY(float x, float y, float radius) {
   return -y / sqrtf(radius * radius - x * x - y * y);
-}
-
-Vector3 vRefractShader(Vector3 i, Vector3 n, float mu) {
-  float c = vDot2(n, i);
-  float k = 1.0f - mu * mu * (1.0f - c * c);
-  if (k < 0.0f) {
-    return (Vector3){0, 0, 0};
-  }
-  return vAddVectors3(vMulByScalar2(n, sqrtf(k)),
-                      vMulByScalar2(vSubVectors2(i, vMulByScalar2(n, c)), mu));
 }
 
 void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY) {
@@ -57,10 +47,10 @@ void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY) {
         float zz = hemisphereZ(xx, yy, global_lensRadius);
 
         Vector3 surfacePoint = {xx, yy, zz};
-        Vector3 nNormal = vNormalize(surfacePoint);
+        Vector3 nNormal = vNormalize3(surfacePoint);
 
         Vector3 iLightDirection = {0, 0, -1};
-        Vector3 tr = vRefractShader(iLightDirection, nNormal, mu);
+        Vector3 tr = vRefract(iLightDirection, nNormal, mu);
         if (tr.x == 0.0f && tr.y == 0.0f && tr.z == 0.0f) {
           continue;
         }
@@ -88,7 +78,7 @@ void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY) {
           vPrint3(nNormal);
           printf(" i: ");
           vPrint3(iLightDirection);
-          printf(" tr: ");
+          printf(" tr: n");
           vPrint3(tr);
           printf("\nt: %f, srcX: %d, srcY: %d\n", t, srcX, srcY);
           printf("-*-----\n");
@@ -214,20 +204,26 @@ int main() {
         DrawTexture(texture, textureX, textureY, WHITE);
       }
 
+      char *controlsText = "[Right Click] Toggle Lens\n[W] Increase "
+                           "Radius\n[S] Decrease Radius\n[I] Increase IOR"
+                           "\n[O] Decrease IOR\n[Space] Toggle "
+                           "Shader/CPU";
+      int controlsTextWidth = MeasureText(controlsText, 15);
+
+      char *shaderModeText =
+          global_useShaderMode ? "GPU Shader Mode (Fast)" : "CPU Mode (Slow)";
+      int shaderModeTextWidth = MeasureText(shaderModeText, 20);
+
+      DrawRectangle(0, 0, controlsTextWidth * 1.1f + controlsTextWidth * .2f,
+                    controlsTextWidth, CLITERAL(Color){0, 0, 0, 150});
+
       DrawFPS(10, 10);
-      DrawText(TextFormat("Lens Radius: %.1f", global_lensRadius), 10, 30, 15,
-               GREEN);
-      DrawText(TextFormat("Lens IOR: %.1f", global_lensIOR), 10, 50, 15, GREEN);
-      const float modeY = 65;
-      if (global_useShaderMode) {
-        DrawText("Shader Mode (GPU)", 10, modeY, 15, RED);
-      } else {
-        DrawText("CPU Mode", 10, modeY, 15, RED);
-      }
-      DrawText("[W] Increase Radius\n[S] Decrease Radius\n[I] Increase IOR"
-               "\n[O] Decrease IOR\n[Right Click] Toggle Lens\n[Space] Toggle "
-               "Shader/CPU",
-               10, 80, 15, GREEN);
+      DrawText(
+          TextFormat("R: %.1f | IOR: %.1f", global_lensRadius, global_lensIOR),
+          10, 35, 15, WHITE);
+      DrawText(controlsText, 10, 65, 15, WHITE);
+
+      DrawText(shaderModeText, 10, 170, 20, RED);
 
     } else {
       const char *text =
