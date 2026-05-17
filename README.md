@@ -11,8 +11,23 @@ A small Raylib demo that simulates a glass lens warping an image through Snell's
 The program renders a movable circular lens over an image and refracts pixels through a hemisphere-shaped surface. It has two implementations of the same effect:
 
 - `main.c` handles the window, image loading, input, and the CPU/GPU rendering switch.
-- `vector_math.h` contains the vector helpers plus the refraction equation used by the CPU path.
 - `lens_shader.glsl` mirrors the same lens math in a fragment shader for the GPU path.
+
+## Controls
+
+- Drag and drop an image to load it.
+- Right click to toggle the lens.
+- `Space` to switch between CPU and shader mode.
+- Mouse wheel or `W` / `S` to change lens radius.
+- `I` / `O` to change index of refraction.
+- `D` to print debug values for the current refracted pixel.
+
+## References
+
+- [Snell's law in vector form](https://physics.stackexchange.com/questions/435512/snells-law-in-vector-form)
+- [OpenGL `refract`](https://registry.khronos.org/OpenGL-Refpages/gl4/html/refract.xhtml)
+- [Video reference](https://www.youtube.com/watch?v=0OvhpQVTS2Q)
+- [Desmos sketch](https://www.desmos.com/3d/eebbaskabr)
 
 ## Theory
 
@@ -36,25 +51,3 @@ where:
 - `μ = n1 / n2`
 
 That same refraction model is used in both the CPU helper and the shader, so the two modes stay visually consistent while showing different performance characteristics.
-
-## Controls
-
-- Drag and drop an image to load it.
-- Right click to toggle the lens.
-- `Space` to switch between CPU and shader mode.
-- Mouse wheel or `W` / `S` to change lens radius.
-- `I` / `O` to change index of refraction.
-- `D` to print debug values for the current refracted pixel.
-
-## Files
-
-- `main.c`: application entry point and rendering loop.
-- `vector_math.h`: vector helpers, distance, normalization, and refraction math.
-- `lens_shader.glsl`: GPU version of the lens effect.
-
-## References
-
-- [Snell's law in vector form](https://physics.stackexchange.com/questions/435512/snells-law-in-vector-form)
-- [OpenGL `refract`](https://registry.khronos.org/OpenGL-Refpages/gl4/html/refract.xhtml)
-- [Video reference](https://www.youtube.com/watch?v=0OvhpQVTS2Q)
-- [Desmos sketch](https://www.desmos.com/3d/eebbaskabr)
