@@ -1,15 +1,42 @@
 #include <math.h>
 #include <raylib.h>
+#include <raymath.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "vector_math.h"
 
 float global_lensRadius = 100.0f;
 float global_lensIOR = 1.52f;
 bool global_useShaderMode = false;
 bool global_isLensEnabled = false;
 bool global_readyToReset = false;
+
+// This function implements the refraction of a vector at the interface between
+// two media using Snell's Law in vector form
+// Copied from:
+// https://registry.khronos.org/OpenGL-Refpages/gl4/html/refract.xhtml
+Vector3 vRefract(Vector3 i, Vector3 n, float eta) {
+  float cosi = -Vector3DotProduct(n, i);
+  float k = 1.0f - eta * eta * (1.0f - cosi * cosi);
+  if (k < 0.0f) {
+    return (Vector3){0, 0, 0};
+  }
+  return Vector3Add(Vector3Scale(i, eta),
+                    Vector3Scale(n, eta * cosi - sqrtf(k)));
+}
+
+Vector3 vRefractShader(Vector3 i, Vector3 n, float mu) {
+  float c = -Vector3DotProduct(n, i);
+  float k = 1.0f - mu * mu * (1.0f - c * c);
+  if (k < 0.0f) {
+    return (Vector3){0, 0, 0};
+  }
+  return Vector3Add(Vector3Scale(n, sqrtf(k)),
+                    Vector3Scale(Vector3Subtract(i, Vector3Scale(n, c)), mu));
+}
+
+void vPrint2(Vector2 a) { printf("(%.2f, %.2f)", a.x, a.y); }
+
+void vPrint3(Vector3 a) { printf("(%.2f, %.2f, %.2f)", a.x, a.y, a.z); }
 
 float hemisphereZ(float x, float y, float radius) {
   return sqrtf(radius * radius - x * x - y * y);
@@ -38,7 +65,7 @@ void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY,
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       Vector2 pixelCoord = {(float)x, (float)y};
-      float distance = vDistance2(pixelCoord, lensCenter);
+      float distance = Vector2Distance(pixelCoord, lensCenter);
       int dstIndex = y * dst->width + x;
 
       if (distance <= global_lensRadius) {
@@ -49,7 +76,7 @@ void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY,
         float zz = hemisphereZ(xx, yy, global_lensRadius);
 
         Vector3 surfacePoint = {xx, yy, zz};
-        Vector3 nNormal = vNormalize3(surfacePoint);
+        Vector3 nNormal = Vector3Normalize(surfacePoint);
 
         Vector3 iLightDirection = {0, 0, -1};
         Vector3 tr = vRefract(iLightDirection, nNormal, mu);
