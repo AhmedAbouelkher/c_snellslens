@@ -10,14 +10,26 @@ A small Raylib demo that simulates a glass lens warping an image through Snell's
 
 The program renders a movable circular lens over an image and refracts pixels through a hemisphere-shaped surface. It has two implementations of the same effect:
 
-- `main.c` handles the window, image loading, input, and the CPU/GPU rendering switch.
+- `main.c` handles the window, image loading, input, the CPU/GPU rendering switch, and the sequential/parallel CPU toggle.
 - `lens_shader.glsl` mirrors the same lens math in a fragment shader for the GPU path.
+
+## Build
+
+Use `make build` to compile the demo into `build/snellslense`.
+
+The Makefile now selects the compiler through `CC`, fetches Raylib flags through `pkg-config`, and enables OpenMP automatically when available:
+
+- On Linux, CPU parallel mode builds with `-fopenmp`.
+- On macOS, CPU parallel mode builds with Homebrew `libomp` when it is installed.
+
+Run `make run` to build and launch the app.
 
 ## Controls
 
 - Drag and drop an image to load it.
 - Right click to toggle the lens.
 - `Space` to switch between CPU and shader mode.
+- `P` to toggle parallel or sequential CPU rendering.
 - Mouse wheel or `W` / `S` to change lens radius.
 - `I` / `O` to change index of refraction.
 - `D` to print debug values for the current refracted pixel.
@@ -51,3 +63,5 @@ where:
 - `μ = n1 / n2`
 
 That same refraction model is used in both the CPU helper and the shader, so the two modes stay visually consistent while showing different performance characteristics.
+
+In CPU mode, the lens pass can run sequentially or in parallel depending on the `P` toggle. The app also starts in shader mode by default, so you can compare GPU rendering against the CPU fallback without pressing anything first.
