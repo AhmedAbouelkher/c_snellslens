@@ -17,12 +17,13 @@ The program renders a movable circular lens over an image and refracts pixels th
 
 Use `make build` to compile the demo into `build/snellslense`.
 
-The Makefile now selects the compiler through `CC`, fetches Raylib flags through `pkg-config`, and enables OpenMP automatically when available:
+The Makefile selects the compiler through `CC`, fetches Raylib flags through `pkg-config`, and enables OpenMP automatically when available:
 
 - On Linux, CPU parallel mode builds with `-fopenmp`.
 - On macOS, CPU parallel mode builds with Homebrew `libomp` when it is installed.
 
 Run `make run` to build and launch the app.
+Use `make run-debug` for an AddressSanitizer build, and `make clean` to remove `build/`.
 
 ## Controls
 

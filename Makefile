@@ -20,10 +20,16 @@ endif
 build: 
 	mkdir -p $(BUILD_DIR)
 	rm -rf $(BUILD_DIR)/snellslense
-	$(CC) -o $(BUILD_DIR)/snellslense main.c $(RAYLIB_FLAGS) $(OMP_INCLUDES) $(OMP_FLAGS) $(OMP_LIBS) -fsanitize=address -g
+	$(CC) -o $(BUILD_DIR)/snellslense main.c $(RAYLIB_FLAGS) $(OMP_INCLUDES) $(OMP_FLAGS) $(OMP_LIBS) -g
 
 run: build
 	$(BUILD_DIR)/snellslense
+
+run-debug:
+	$(BUILD_DIR)/snellslense_debug
+	rm -rf $(BUILD_DIR)/snellslense_debug
+	$(CC) -o $(BUILD_DIR)/snellslense_debug main.c $(RAYLIB_FLAGS) $(OMP_INCLUDES) $(OMP_FLAGS) $(OMP_LIBS) -g -fsanitize=address
+	$(BUILD_DIR)/snellslense_debug
 
 clean:
 	rm -rf $(BUILD_DIR)

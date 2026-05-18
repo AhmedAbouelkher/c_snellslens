@@ -143,19 +143,16 @@ int main(int argc, char **argv) {
     imagePath = argv[1];
   }
 
-#if defined(_OPENMP)
-  omp_set_num_threads(omp_get_num_procs());
-#endif /* defined(_OPENMP) */
-
   InitWindow(1200, 900, "Snell's Lens");
   SetTargetFPS(60);
 
   Image sourceImage = {0};
+  Texture2D texture = {0};
   if (imagePath) {
-    Image sourceImage = LoadImage("assets/baboon.png");
+    sourceImage = LoadImage(imagePath);
     ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    texture = LoadTextureFromImage(sourceImage);
   }
-  Texture2D texture = LoadTextureFromImage(sourceImage);
 
   Shader lensShader = LoadShader(0, "lens_shader.glsl");
   int mouseLoc = GetShaderLocation(lensShader, "mouse");
@@ -241,11 +238,11 @@ int main(int argc, char **argv) {
     ClearBackground(BLACK);
 
     if (IsTextureValid(texture)) {
-      float scaleX = (float)GetScreenWidth() / (float)sourceImage.width;
-      float scaleY = (float)GetScreenHeight() / (float)sourceImage.height;
+      float scaleX = (float)GetScreenWidth() / (float)texture.width;
+      float scaleY = (float)GetScreenHeight() / (float)texture.height;
       float scale = scaleX < scaleY ? scaleX : scaleY;
-      float textureWidth = (float)sourceImage.width * scale;
-      float textureHeight = (float)sourceImage.height * scale;
+      float textureWidth = (float)texture.width * scale;
+      float textureHeight = (float)texture.height * scale;
       Rectangle textureRect = {
           (GetScreenWidth() - textureWidth) / 2.0f,
           (GetScreenHeight() - textureHeight) / 2.0f,
@@ -254,7 +251,6 @@ int main(int argc, char **argv) {
       };
 
       if (global_isLensEnabled && global_useShaderMode) {
-        UpdateTexture(texture, sourceImage.data);
         global_readyToReset = false;
 
         float mousePos[2] = {GetMousePosition().x, GetMousePosition().y};
@@ -262,8 +258,7 @@ int main(int argc, char **argv) {
         float lensIOR[1] = {global_lensIOR};
         float offset[2] = {textureRect.x, textureRect.y};
         float imageScale[1] = {scale};
-        float textureSize[2] = {(float)sourceImage.width,
-                                (float)sourceImage.height};
+        float textureSize[2] = {(float)texture.width, (float)texture.height};
 
         SetShaderValue(lensShader, mouseLoc, mousePos, SHADER_UNIFORM_VEC2);
         SetShaderValue(lensShader, radiusLoc, lensRadius, SHADER_UNIFORM_FLOAT);
@@ -346,7 +341,9 @@ int main(int argc, char **argv) {
   }
 
   UnloadImage(sourceImage);
-  UnloadTexture(texture);
+  if (IsTextureValid(texture)) {
+    UnloadTexture(texture);
+  }
   UnloadShader(lensShader);
   CloseWindow();
   return 0;
