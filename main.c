@@ -10,6 +10,86 @@
 
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
+
+EM_JS(void, BrowserInitFileDropBridge, (void), {
+  if (Module.raylibFileDropBridgeInstalled) {
+    return;
+  }
+
+  Module.raylibFileDropBridgeInstalled = true;
+  Module.raylibDroppedFiles = Module.raylibDroppedFiles || [];
+
+  var canvas = Module.canvas;
+  var fileInput = document.getElementById("raylib-file-input");
+
+  if (!fileInput) {
+    fileInput = document.createElement("input");
+    fileInput.id = "raylib-file-input";
+    fileInput.type = "file";
+    fileInput.style.display = "none";
+    document.body.appendChild(fileInput);
+  }
+
+  function queueFirstFile(file) {
+    if (!file) {
+      return;
+    }
+
+    var path = "/" + file.name;
+    file.arrayBuffer().then(function(buffer) {
+      if (Module.raylibDroppedFiles.length > 0) {
+        return;
+      }
+
+      FS.writeFile(path, new Uint8Array(buffer));
+      Module.raylibDroppedFiles.push(path);
+    });
+  }
+
+  canvas.addEventListener("dragover", function(event) {
+    event.preventDefault();
+  }, false);
+
+  canvas.addEventListener("drop", function(event) {
+    event.preventDefault();
+
+    var files = event.dataTransfer && event.dataTransfer.files;
+    if (!files) {
+      return;
+    }
+
+    queueFirstFile(files[0]);
+  }, false);
+
+  canvas.addEventListener("click", function() {
+    fileInput.value = "";
+    fileInput.click();
+  }, false);
+
+  fileInput.addEventListener("change", function(event) {
+    var files = event.target.files;
+    if (!files) {
+      return;
+    }
+
+    queueFirstFile(files[0]);
+  }, false);
+});
+
+EM_JS(int, BrowserDroppedFilesCount, (void), {
+  return (Module.raylibDroppedFiles && Module.raylibDroppedFiles.length) ? Module.raylibDroppedFiles.length : 0;
+});
+
+EM_JS(void, BrowserDroppedFilePath, (int index, char *buffer, int bufferSize), {
+  var path = (Module.raylibDroppedFiles && Module.raylibDroppedFiles[index]) ? Module.raylibDroppedFiles[index] : "";
+  stringToUTF8(path, buffer, bufferSize);
+});
+
+EM_JS(void, BrowserClearDroppedFiles, (void), {
+  if (Module.raylibDroppedFiles) {
+    Module.raylibDroppedFiles.length = 0;
+  }
+});
 #endif /* defined(PLATFORM_WEB) */
 
 float global_lensRadius = 100.0f;
@@ -141,8 +221,6 @@ void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY,
   }
 }
 
-void UpdateDrawFrame(void);
-
 int main(int argc, char **argv) {
   char *imagePath = NULL;
   if (argc > 1) {
@@ -150,14 +228,7 @@ int main(int argc, char **argv) {
   }
 
   InitWindow(1200, 900, "Snell's Lens");
-
-  Image sourceImage = {0};
-  Texture2D texture = {0};
-  if (imagePath) {
-    sourceImage = LoadImage(imagePath);
-    ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-    texture = LoadTextureFromImage(sourceImage);
-  }
+  SetTargetFPS(60);
 
   Shader lensShader = LoadShader(0, "resources/lens_shader.glsl");
   int mouseLoc = GetShaderLocation(lensShader, "mouse");
@@ -167,31 +238,52 @@ int main(int argc, char **argv) {
   int textureSizeLoc = GetShaderLocation(lensShader, "textureSize");
   int scaleLoc = GetShaderLocation(lensShader, "scale");
 
+  Image sourceImage = {0};
+  Texture2D texture = {0};
+  if (imagePath) {
+    sourceImage = LoadImage(imagePath);
+  }
+
 #if defined(PLATFORM_WEB)
   global_useShaderMode = false;
+  sourceImage = LoadImage("resources/fruits.png");
+  BrowserInitFileDropBridge();
+#endif /* defined(PLATFORM_WEB) */
 
-  emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
-
-#else
-  SetTargetFPS(60);
+  if (IsImageValid(sourceImage)) {
+    ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    texture = LoadTextureFromImage(sourceImage);
+  }
 
   while (!WindowShouldClose()) {
+#if defined(PLATFORM_WEB)
+    int droppedCount = BrowserDroppedFilesCount();
+    if (droppedCount > 0) {
+      char droppedPath[2048] = {0};
+      Image tempImage = {0};
+
+      BrowserDroppedFilePath(0, droppedPath, sizeof(droppedPath));
+      tempImage = LoadImage(droppedPath);
+      if (IsImageValid(tempImage)) {
+        UnloadImage(sourceImage);
+        sourceImage = ImageCopy(tempImage);
+        ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+
+        UnloadTexture(texture);
+        texture = LoadTextureFromImage(sourceImage);
+        global_isLensEnabled = true;
+
+        UnloadImage(tempImage);
+        printf("Loaded image: %s\n", droppedPath);
+      } else {
+        printf("Failed to load image: %s\n", droppedPath);
+      }
+
+      BrowserClearDroppedFiles();
+    }
+#else
     if (IsFileDropped()) {
       FilePathList droppedFiles = LoadDroppedFiles();
-      printf("Dropped files: %d\n", droppedFiles.count);
-      int nullCount = 0;
-
-      // for (int i = 0; i < droppedFiles.count; i++) {
-      //   char *filePath = droppedFiles.paths[i];
-      //   if (filePath != NULL) {
-      //     printf("[%d] Dropped file: %s\n", i, filePath);
-      //   } else {
-      //     nullCount++;
-      //   }
-      // }
-
-      printf("Null count: %d\n", nullCount);
-
       Image tempImage = {0};
       if (droppedFiles.count > 0) {
         tempImage = LoadImage(droppedFiles.paths[0]);
@@ -212,6 +304,7 @@ int main(int argc, char **argv) {
       }
       UnloadDroppedFiles(droppedFiles);
     }
+#endif /* defined(PLATFORM_WEB) */
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
       global_isLensEnabled = !global_isLensEnabled;
@@ -374,7 +467,6 @@ int main(int argc, char **argv) {
 
     EndDrawing();
   }
-#endif /* defined(PLATFORM_WEB) */
 
   UnloadImage(sourceImage);
   if (IsTextureValid(texture)) {
@@ -383,20 +475,4 @@ int main(int argc, char **argv) {
   UnloadShader(lensShader);
   CloseWindow();
   return 0;
-}
-
-void UpdateDrawFrame(void) {
-
-  if (IsFileDropped()) {
-    FilePathList droppedFiles = LoadDroppedFiles();
-    printf("Dropped files: %d\n", droppedFiles.count);
-
-    printf("Dropped files: %s\n", droppedFiles.paths[0]);
-
-    UnloadDroppedFiles(droppedFiles);
-  }
-
-  BeginDrawing();
-  ClearBackground(RED);
-  EndDrawing();
 }
