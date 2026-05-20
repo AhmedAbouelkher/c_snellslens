@@ -6,6 +6,9 @@
 
 A small Raylib demo that simulates a glass lens warping an image through Snell's law in vector form.
 
+## [TRY THE DEMO IN YOUR BROWSER](https://github.com/AhmedAbouelkher/c_snellslens)
+For the best experience, download and [build the project locally](#build).
+
 ## Project Overview
 
 The program renders a movable circular lens over an image and refracts pixels through a hemisphere-shaped surface. It has two implementations of the same effect:
