@@ -8,6 +8,10 @@
 #include <omp.h>
 #endif /* defined(_OPENMP) */
 
+#if defined(PLATFORM_WEB)
+#include <emscripten/emscripten.h>
+#endif /* defined(PLATFORM_WEB) */
+
 float global_lensRadius = 100.0f;
 float global_lensIOR = 1.52f;
 bool global_useShaderMode = true;
@@ -137,6 +141,8 @@ void applyLensOn(Image *dst, Image *src, int offsetX, int offsetY,
   }
 }
 
+void UpdateDrawFrame(void);
+
 int main(int argc, char **argv) {
   char *imagePath = NULL;
   if (argc > 1) {
@@ -144,7 +150,6 @@ int main(int argc, char **argv) {
   }
 
   InitWindow(1200, 900, "Snell's Lens");
-  SetTargetFPS(60);
 
   Image sourceImage = {0};
   Texture2D texture = {0};
@@ -154,7 +159,7 @@ int main(int argc, char **argv) {
     texture = LoadTextureFromImage(sourceImage);
   }
 
-  Shader lensShader = LoadShader(0, "lens_shader.glsl");
+  Shader lensShader = LoadShader(0, "resources/lens_shader.glsl");
   int mouseLoc = GetShaderLocation(lensShader, "mouse");
   int radiusLoc = GetShaderLocation(lensShader, "radius");
   int iorLoc = GetShaderLocation(lensShader, "ior");
@@ -162,17 +167,48 @@ int main(int argc, char **argv) {
   int textureSizeLoc = GetShaderLocation(lensShader, "textureSize");
   int scaleLoc = GetShaderLocation(lensShader, "scale");
 
+#if defined(PLATFORM_WEB)
+  global_useShaderMode = false;
+
+  emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
+
+#else
+  SetTargetFPS(60);
+
   while (!WindowShouldClose()) {
     if (IsFileDropped()) {
       FilePathList droppedFiles = LoadDroppedFiles();
-      // only take the first file
+      printf("Dropped files: %d\n", droppedFiles.count);
+      int nullCount = 0;
+
+      // for (int i = 0; i < droppedFiles.count; i++) {
+      //   char *filePath = droppedFiles.paths[i];
+      //   if (filePath != NULL) {
+      //     printf("[%d] Dropped file: %s\n", i, filePath);
+      //   } else {
+      //     nullCount++;
+      //   }
+      // }
+
+      printf("Null count: %d\n", nullCount);
+
+      Image tempImage = {0};
       if (droppedFiles.count > 0) {
-        UnloadImage(sourceImage);
-        sourceImage = LoadImage(droppedFiles.paths[0]);
-        ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-        UnloadTexture(texture);
-        texture = LoadTextureFromImage(sourceImage);
-        global_isLensEnabled = true;
+        tempImage = LoadImage(droppedFiles.paths[0]);
+        if (IsImageValid(tempImage)) {
+          UnloadImage(sourceImage);
+          sourceImage = ImageCopy(tempImage);
+          ImageFormat(&sourceImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+
+          UnloadTexture(texture);
+          texture = LoadTextureFromImage(sourceImage);
+          global_isLensEnabled = true;
+
+          UnloadImage(tempImage);
+          printf("Loaded image: %s\n", droppedFiles.paths[0]);
+        } else {
+          printf("Failed to load image: %s\n", droppedFiles.paths[0]);
+        }
       }
       UnloadDroppedFiles(droppedFiles);
     }
@@ -304,7 +340,6 @@ int main(int argc, char **argv) {
 
       char *shaderModeText =
           global_useShaderMode ? "GPU Shader Mode (Fast)" : "CPU Mode (Slow)";
-      int shaderModeTextWidth = MeasureText(shaderModeText, 20);
       char *parallelModeText =
           global_useParallel ? "Parallel CPU Mode" : "Sequential CPU Mode";
 
@@ -339,6 +374,7 @@ int main(int argc, char **argv) {
 
     EndDrawing();
   }
+#endif /* defined(PLATFORM_WEB) */
 
   UnloadImage(sourceImage);
   if (IsTextureValid(texture)) {
@@ -347,4 +383,20 @@ int main(int argc, char **argv) {
   UnloadShader(lensShader);
   CloseWindow();
   return 0;
+}
+
+void UpdateDrawFrame(void) {
+
+  if (IsFileDropped()) {
+    FilePathList droppedFiles = LoadDroppedFiles();
+    printf("Dropped files: %d\n", droppedFiles.count);
+
+    printf("Dropped files: %s\n", droppedFiles.paths[0]);
+
+    UnloadDroppedFiles(droppedFiles);
+  }
+
+  BeginDrawing();
+  ClearBackground(RED);
+  EndDrawing();
 }
