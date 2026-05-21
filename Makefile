@@ -43,11 +43,11 @@ run-debug:
 build-web:
 	mkdir -p $(WEB_BUILD_DIR)
 	emcc -o $(WEB_BUILD_DIR)/snellslens.html main.c -Os -Wall -DPLATFORM_WEB \
-		$(RAYLIB_WEB_FLAGS) -sUSE_GLFW=3 -sASYNCIFY -sFORCE_FILESYSTEM=1 -sMINIFY_HTML=0 \
+		$(RAYLIB_WEB_FLAGS) -sUSE_GLFW=3 -sFORCE_FILESYSTEM=1 -sMINIFY_HTML=0 \
+		-sINITIAL_MEMORY=256MB -sMAXIMUM_MEMORY=2048MB -sALLOW_MEMORY_GROWTH=1 \
 		--preload-file $(BUILD_WEB_RESOURCES_PATH) \
 		--shell-file $(BUILD_WEB_SHELL)
 		
-
 build-web-deploy: build-web
 	rm -rf ./docs
 	cp -r $(WEB_BUILD_DIR) ./docs
